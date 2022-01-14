@@ -47,16 +47,30 @@ db['hashes'] = []
 async def get_transactions():
     webhook = os.environ['WEBHOOK']
     latest_block_number = int(web3.eth.get_block('latest')['number'])
-    start_block = latest_block_number - 70
+    start_block = latest_block_number - 100
     for i in range(len(db['wallets'])):
         wallet = db['wallets'][name_list[i]]
+        print(wallet)
+
+        #API URL's Below
         normal_txns_url = f'https://api.etherscan.io/api?module=account&action=txlist&address={wallet}&startblock={start_block}&endblock={latest_block_number}&sort=asc&apikey={etherscan_key}'
+        
+        avax_normal_url = f'https://api.snowtrace.io/api?module=account&action=txlist&address={wallet}&startblock=9558000&endblock=99999999999&sort=asc&apikey={snowtrace_key}'
+
+        ftm_normal_url = f'https://api.ftmscan.com/api?module=account&action=txlist&address={wallet}&startblock=27000000&endblock=99999999&sort=asc&apikey={ftm_key}'
+        #Fetch Etherscan Data
         response = requests.get(url=normal_txns_url)
         data = response.json()
-        time.sleep(4)
         sorted_result = sorted(data['result'], key=itemgetter('timeStamp'))
+
+        #Fetch AVAX Data
+        response_avax = requests.get(url=avax_normal_url)
+        data_avax = response_avax.json()
+
         try:
+            print(wallet)
             txn_hash = (sorted_result[-1]['hash'])
+            print(txn_hash)
             if txn_hash not in db['hashes']:
                 webhook = DiscordWebhook(
                     url=
@@ -68,25 +82,54 @@ async def get_transactions():
                 response = webhook.execute()
                 db['hashes'].append(txn_hash)
             else:
-                webhook = DiscordWebhook(
-                    url=
-                    f'https://discord.com/api/webhooks/{webhook}',
-                    rate_limit_retry=True,
-                    content=
-                    f"Checked latest blocks. Nothing to report")
-                response = webhook.execute()
+                print("else")
         except:
-            webhook = DiscordWebhook(
+            print("passed over except")
+        
+        
+        try:
+          print(wallet)
+          txn_hash_avax = data_avax['result'][-1]['hash']
+          if txn_hash_avax not in db['hashes']:
+              webhook = DiscordWebhook(
                     url=
                     f'https://discord.com/api/webhooks/{webhook}',
                     rate_limit_retry=True,
                     content=
-                    f"Checked latest blocks. Nothing to report")
-            response = webhook.execute()
+                    f"Hey @everyone! A new txn on {list(db['wallets'].keys())[i]}'s wallet! https://snowtrace.io/tx/{txn_hash_avax}"
+                )
+              response = webhook.execute()
+              db['hashes'].append(txn_hash_avax)
+          else:
+            pass
+        except:
+          print("avax except")
 
-
-
-
+        #Fetch FTM data
+        response_ftm = requests.get(url=ftm_normal_url)
+        data_ftm = response_ftm.json()
+        try:
+          print(wallet)
+          txn_hash_ftm = data_ftm['result'][-1]['hash']
+          print(txn_hash_ftm)
+          if txn_hash_ftm not in db['hashes']:
+              webhook = DiscordWebhook(
+                    url=
+                    f'https://discord.com/api/webhooks/{webhook}',
+                    rate_limit_retry=True,
+                    content=
+                    f"Hey @everyone! A new txn on {list(db['wallets'].keys())[i]}'s wallet! https://ftmscan.com/tx/{txn_hash_ftm}"
+                )
+              response = webhook.execute()
+              db['hashes'].append(txn_hash_ftm)
+          else:
+            print("ftm else")
+        except:
+          print("ftm except") 
+        time.sleep(5)     
+        
+    Timer(5.0, await get_transactions()).start()
+            
 
 client = discord.Client()
 @client.event
